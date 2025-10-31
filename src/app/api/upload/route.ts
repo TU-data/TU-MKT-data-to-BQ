@@ -249,6 +249,7 @@ function transformCsvToTargetSchema(
   const records = parse(buffer, {
     bom: true,
     columns: headerRow,
+    from_line: 2,
     skip_empty_lines: true,
   }) as Record<string, unknown>[];
 
