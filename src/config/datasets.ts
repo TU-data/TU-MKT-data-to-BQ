@@ -19,7 +19,7 @@ export const DATASETS: DatasetConfig[] = [
     label: '바비톡 Data Raw',
     tableLabel: '바비톡 Raw',
     schemaFile: 'babitalk.csv',
-    bigQueryTableId: 'tugether-data-warehouse-01.06_mkt.02_consult_booking_raw',
+    bigQueryTableId: 'tugether-data-warehouse-01.07_ads.02_gangnamunnie_test',
   },
   {
     id: 'goddessicket',
