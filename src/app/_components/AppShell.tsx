@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, ChangeEvent, useTransition } from 'react';
+import { useMemo, useRef, useState, ChangeEvent, DragEvent, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import type { DatasetWithSchema } from '@/lib/schema';
 import styles from './AppShell.module.css';
@@ -30,6 +30,8 @@ export default function AppShell({ datasets }: AppShellProps) {
   ]);
   const [error, setError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isDragActive, setIsDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoggingOut, startLogout] = useTransition();
   const router = useRouter();
@@ -38,6 +40,7 @@ export default function AppShell({ datasets }: AppShellProps) {
     setSelectedDatasetId(datasetId);
     setLogs(['새로운 CSV 업로드를 준비하고 있습니다.']);
     setError(null);
+    setSelectedFile(null);
   };
 
   const handleUploadClick = () => {
@@ -48,11 +51,79 @@ export default function AppShell({ datasets }: AppShellProps) {
     fileInputRef.current?.click();
   };
 
-  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
     event.target.value = '';
+    if (!files?.length) {
+      return;
+    }
 
-    if (!file || !selectedDataset) {
+    selectFile(files);
+  };
+
+  const selectFile = (fileList: FileList) => {
+    if (fileList.length > 1) {
+      setError('한 번에 하나의 CSV 파일만 선택할 수 있습니다.');
+      setSelectedFile(null);
+      return;
+    }
+
+    const [file] = Array.from(fileList);
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+      setError('CSV 파일만 업로드할 수 있습니다.');
+      setSelectedFile(null);
+      return;
+    }
+
+    setSelectedFile(file);
+    setError(null);
+    setLogs([`${file.name} 파일이 선택되었습니다. 업로드 버튼을 눌러 진행해주세요.`]);
+  };
+
+  const handleLogout = () => {
+    startLogout(async () => {
+      await logoutAction();
+      router.refresh();
+    });
+  };
+
+  const handleDragOver = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    if (isUploading) {
+      return;
+    }
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragActive(false);
+  };
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragActive(false);
+    if (isUploading) {
+      return;
+    }
+
+    const files = event.dataTransfer?.files;
+    if (!files?.length) {
+      return;
+    }
+
+    selectFile(files);
+  };
+
+  const initiateUpload = async () => {
+    if (!selectedDataset || !selectedFile || isUploading) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `업로드하면 수정할 수 없습니다.\n${selectedDataset.tableLabel}에 ${selectedFile.name} 파일을 업로드하시겠습니까?`
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -64,10 +135,12 @@ export default function AppShell({ datasets }: AppShellProps) {
     ]);
 
     try {
-      const uploadLogs = await uploadFile(file, selectedDataset.id);
+      const uploadLogs = await uploadFile(selectedFile, selectedDataset.id);
       setLogs(uploadLogs.logs);
       if (!uploadLogs.success) {
         setError(uploadLogs.error ?? '업로드 과정에서 문제가 발생했습니다.');
+      } else {
+        setSelectedFile(null);
       }
     } catch (uploadError) {
       console.error(uploadError);
@@ -79,13 +152,6 @@ export default function AppShell({ datasets }: AppShellProps) {
     } finally {
       setIsUploading(false);
     }
-  };
-
-  const handleLogout = () => {
-    startLogout(async () => {
-      await logoutAction();
-      router.refresh();
-    });
   };
 
   if (!selectedDataset) {
@@ -132,11 +198,23 @@ export default function AppShell({ datasets }: AppShellProps) {
         <div className={styles.grid}>
           <section className={styles.card}>
             <h2 className={styles.cardTitle}>CSV 업로드</h2>
-            <div className={styles.uploadBox} role="button" tabIndex={0} onClick={handleUploadClick}>
+            <div
+              className={
+                isDragActive ? `${styles.uploadBox} ${styles.uploadBoxDragging}` : styles.uploadBox
+              }
+              role="button"
+              tabIndex={0}
+              onClick={handleUploadClick}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={handleDrop}
+            >
               <div className={styles.uploadIcon}>+</div>
               <div className={styles.uploadHint}>CSV 파일을 업로드 해주세요.</div>
               <div className={styles.uploadHelper}>
-                {isUploading ? '파일 전송 중입니다...' : '클릭하여 파일 탐색기를 열 수 있습니다.'}
+                {isUploading
+                  ? '파일 전송 중입니다...'
+                  : '클릭하거나 파일을 끌어다 놓아 선택할 수 있습니다.'}
               </div>
             </div>
             <input
@@ -147,6 +225,26 @@ export default function AppShell({ datasets }: AppShellProps) {
               onChange={handleFileChange}
               aria-hidden
             />
+            <div className={styles.selectedFileArea}>
+              <span className={styles.selectedFileLabel}>선택된 파일</span>
+              {selectedFile ? (
+                <span className={styles.selectedFileValue}>
+                  {selectedFile.name} ({formatFileSize(selectedFile.size)})
+                </span>
+              ) : (
+                <span className={styles.selectedFilePlaceholder}>파일이 선택되지 않았습니다.</span>
+              )}
+            </div>
+            <div className={styles.uploadActions}>
+              <button
+                type="button"
+                className={styles.uploadButton}
+                onClick={initiateUpload}
+                disabled={!selectedFile || isUploading}
+              >
+                {isUploading ? '업로드 중...' : '업로드 실행'}
+              </button>
+            </div>
             <div className={styles.status}>
               {isUploading
                 ? `${selectedDataset.label} 업로드 진행 중`
@@ -205,4 +303,14 @@ async function uploadFile(file: File, datasetId: DatasetWithSchema['id']): Promi
 
   const payload = (await response.json()) as UploadResponse;
   return payload;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes === 0) {
+    return '0 B';
+  }
+  const units = ['B', 'KB', 'MB', 'GB'];
+  const exponent = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+  const size = bytes / Math.pow(1024, exponent);
+  return `${size.toFixed(size >= 10 || exponent === 0 ? 0 : 1)} ${units[exponent]}`;
 }
