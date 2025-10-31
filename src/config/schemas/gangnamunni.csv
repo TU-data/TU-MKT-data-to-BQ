@@ -1,0 +1,6 @@
+기존 컬럼명,데이터 타입,영어 컬럼명
+예약번호,STRING,record_id
+예약일시,TIMESTAMP,event_timestamp
+회원번호,STRING,user_id
+시술코드,STRING,procedure_code
+예약상태,STRING,reservation_status

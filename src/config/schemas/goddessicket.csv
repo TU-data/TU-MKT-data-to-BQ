@@ -1,0 +1,6 @@
+기존 컬럼명,데이터 타입,영어 컬럼명
+record_id,STRING,record_id
+event_timestamp,TIMESTAMP,event_timestamp
+channel,STRING,channel
+campaign,STRING,campaign
+spend,NUMERIC,spend

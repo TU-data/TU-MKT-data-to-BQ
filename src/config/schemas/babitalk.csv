@@ -1,0 +1,6 @@
+기존 컬럼명,데이터 타입,영어 컬럼명
+record_id,STRING,record_id
+event_date,DATE,event_date
+user_id,STRING,user_id
+clinic_name,STRING,clinic_name
+device,STRING,device
