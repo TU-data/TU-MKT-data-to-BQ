@@ -1,6 +1,11 @@
 기존 컬럼명,데이터 타입,영어 컬럼명
-record_id,STRING,record_id
-event_date,DATE,event_date
-user_id,STRING,user_id
-clinic_name,STRING,clinic_name
-device,STRING,device
+EID, STRING, EID
+event_name, STRING, event_name	
+광고 일자, DATE, event_date	
+노출 수, INTEGER, metrics_impression
+조회 수, INTEGER, metrics_view
+상담신청 수, INTEGER, metrics_consult
+결제 수, INTEGER, metrics_payment	
+고객전환율, FLOAT, metrics_cvr	
+조회광고단가, FLOAT, metrics_cpv	
+차감액, INTEGER, metrics_cost
