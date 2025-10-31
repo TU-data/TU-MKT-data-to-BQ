@@ -53,12 +53,13 @@ export default function AppShell({ datasets }: AppShellProps) {
 
   const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
-    event.target.value = '';
     if (!files?.length) {
+      event.target.value = '';
       return;
     }
 
     selectFile(files);
+    event.target.value = '';
   };
 
   const selectFile = (fileList: FileList) => {
