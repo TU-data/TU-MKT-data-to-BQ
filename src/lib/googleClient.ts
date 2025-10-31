@@ -50,13 +50,13 @@ export function createBigQueryClient(preferredProjectId?: string): BigQueryClien
 }
 
 function parseServiceAccountJson(jsonString: string): ServiceAccountJSON {
-  try {
-    return JSON.parse(jsonString) as ServiceAccountJSON;
-  } catch (error) {
+  const parsed = tryParseServiceAccountJSON(jsonString);
+  if (!parsed) {
     throw new Error(
-      `GOOGLE_APPLICATION_CREDENTIALS_JSON 값을 JSON으로 파싱하지 못했습니다. 문자열이 올바른 JSON인지 확인해주세요. ${(error as Error).message}`
+      "GOOGLE_APPLICATION_CREDENTIALS_JSON 값을 JSON으로 파싱하지 못했습니다. 문자열이 올바른 JSON이거나 base64 인코딩된 JSON인지 확인해주세요."
     );
   }
+  return parsed;
 }
 
 function extractProjectIdFromJson(jsonString?: string): string | undefined {
@@ -64,9 +64,39 @@ function extractProjectIdFromJson(jsonString?: string): string | undefined {
     return undefined;
   }
 
+  const parsed = tryParseServiceAccountJSON(jsonString);
+  return parsed?.project_id;
+}
+
+function tryParseServiceAccountJSON(jsonValue: string): ServiceAccountJSON | undefined {
+  const directParse = safeJsonParse(jsonValue);
+  if (directParse) {
+    return directParse;
+  }
+
+  const maybeBase64 = safeJsonParse(decodeBase64(jsonValue));
+  return maybeBase64;
+}
+
+function safeJsonParse(input?: string): ServiceAccountJSON | undefined {
+  if (!input) {
+    return undefined;
+  }
   try {
-    const parsed = JSON.parse(jsonString) as ServiceAccountJSON;
-    return parsed.project_id;
+    return JSON.parse(input) as ServiceAccountJSON;
+  } catch {
+    return undefined;
+  }
+}
+
+function decodeBase64(value: string): string | undefined {
+  try {
+    const buffer = Buffer.from(value, "base64");
+    const decoded = buffer.toString("utf8");
+    if (!decoded || decoded === value) {
+      return undefined;
+    }
+    return decoded;
   } catch {
     return undefined;
   }
