@@ -1,6 +1,6 @@
 기존 컬럼명,데이터 타입,영어 컬럼명
- , STRING, EID
- , STRING, event_name	
+EID, STRING, EID
+event_name, STRING, event_name	
 광고 일자, DATE, event_date	
 노출 수, INTEGER, metrics_impression
 조회 수, INTEGER, metrics_view
