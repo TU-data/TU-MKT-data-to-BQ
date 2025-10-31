@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parse } from "csv-parse/sync";
 import { stringify } from "csv-stringify/sync";
-import { BigQuery } from "@google-cloud/bigquery";
 import type { DatasetConfig } from "@/config/datasets";
 import { SESSION_COOKIE_NAME, getExpectedSessionValue } from "@/lib/auth";
 import { getDatasetWithSchema, SchemaField } from "@/lib/schema";
+import { createBigQueryClient } from "@/lib/googleClient";
 
 type UploadResult = {
   success: boolean;
@@ -135,26 +135,6 @@ export async function POST(request: Request) {
     );
   }
 
-  const defaultProjectId =
-    process.env.BIGQUERY_PROJECT_ID ??
-    process.env.GOOGLE_CLOUD_PROJECT ??
-    process.env.GCP_PROJECT_ID;
-
-  const projectId = projectIdFromConfig ?? defaultProjectId;
-
-  if (!projectId) {
-    appendLog("환경 변수나 컨피그에서 BigQuery 프로젝트 ID를 찾을 수 없습니다.");
-    return NextResponse.json<UploadResult>(
-      {
-        success: false,
-        logs: logMessages,
-        error:
-          "BIGQUERY_PROJECT_ID 환경 변수 또는 컨피그의 BigQuery 테이블 ID에 프로젝트 정보를 입력해주세요.",
-      },
-      { status: 500 }
-    );
-  }
-
   const tempFilePath = join(
     tmpdir(),
     `mkt-data-${dataset.id}-${Date.now()}-${Math.random().toString(16).slice(2)}.csv`
@@ -164,7 +144,7 @@ export async function POST(request: Request) {
 
   try {
     appendLog("BigQuery 로드 작업을 시작합니다....");
-    const bigquery = new BigQuery({ projectId });
+    const { client: bigquery, projectId: resolvedProjectId } = createBigQueryClient(projectIdFromConfig);
     const table = bigquery.dataset(datasetId).table(tableId);
 
     const schemaFieldsForBigQuery = schemaFields.map((field) => ({
@@ -183,7 +163,9 @@ export async function POST(request: Request) {
       skipLeadingRows: 1,
       autodetect: false,
     });
-    appendLog(`BigQuery의 ${projectId}.${datasetId}.${tableId} 테이블에 업로드를 완료 했습니다.....`);
+    appendLog(
+      `BigQuery의 ${resolvedProjectId}.${datasetId}.${tableId} 테이블에 업로드를 완료 했습니다.....`
+    );
   } catch (error) {
     console.error(error);
     appendLog("BigQuery 업로드 중 오류가 발생했습니다.");
